@@ -10,9 +10,25 @@ import patoolib
 from time import sleep
 from threading import Thread
 
+import pyautogui
+from selenium.common.exceptions import *
+from selenium import webdriver
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+import random
+import pyperclip
+from time import sleep
 
-# Pasta de destino dos documentos compactados
-destino ='\Docomentação_'
+
+def digitar_naturalmente(texto, elemento):
+    for letra in texto:
+        elemento.send_keys(letra)
+        sleep(random.randint(1, 5)/30)
+
 
 # SuperFastPython.com
 # example of returning a value from a thread
@@ -76,6 +92,9 @@ def pasta_str(pasta):
     return pdfsStored
 
 
+# Pasta de destino dos documentos compactados
+destino ='\_1_Documentação'
+
 # Layout principal
 sg.theme('Reddit')  # Tema
 layout = [
@@ -107,8 +126,11 @@ while True:
         unzip(pasta + destino)
         processada = 'Pasta processada'
         if os.path.isdir(pasta + destino):
-            rename_filenames(pasta)
-            merge_pdfs(pasta)
+            try:
+                rename_filenames(pasta)
+                merge_pdfs(pasta)
+            except:
+                print(f'*** ERRO *** erro ao processar o arquivo {pasta} ')
         anexada = 'Iniciar anexação dos arquivos ao e-processo...'
                 # create a new thread
         thread = Thread(target=task, daemon=True)
@@ -135,3 +157,203 @@ janela.close()
 print(f'Pasta: {pasta}')
 print(f'Proceso: {processo}')
 print(f'Arquivos a anexar: {anexar}')
+
+
+driver = webdriver.Edge(EdgeChromiumDriverManager().install())
+driver.get('https://www.suiterfb.receita.fazenda/public/default.html') 
+
+
+wait = WebDriverWait(
+        driver,
+        300, # 5 min
+        poll_frequency=1,
+        ignored_exceptions=[
+            NoSuchElementException,
+            ElementNotVisibleException,
+            ElementNotSelectableException,
+        ]
+    )
+
+
+l = []
+for _, _, arquivos in os.walk(pasta):
+    for arquivo in arquivos:
+        pass
+    l.append(arquivos)
+#print(l[0])
+#print(l[1])  
+
+lista_arquivos = l[0]
+string_arquivos = str(l[0]).strip('[').strip(']').replace(',', '').replace("'", '"')
+
+usuario = 'LUCIANA DE MORAES RODRIGUES'
+numerodoprocesso = processo
+
+# Salvar janela atual
+janela_inicial = driver.current_window_handle
+print()
+print('=' * 50)
+print('janela inicial - ' + janela_inicial)
+
+# Aguarda botao login para entao clicar
+wait.until(EC.element_to_be_clickable((By.ID, 'btnLogin')))
+driver.find_element(By.ID, 'btnLogin').click()
+sleep(2)
+
+# Aguarga botao do sertificado digital
+wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="loginCertForm"]/p[2]/input')))
+driver.find_element(By.XPATH, '//*[@id="loginCertForm"]/p[2]/input').click()
+sleep(2)
+
+# Aguarda o input inicio Aplicação
+wait.until(EC.element_to_be_clickable((By.ID, 'txtInicioAplicacao')))
+input_inicio = driver.find_element(By.ID, 'txtInicioAplicacao')
+input_inicio.send_keys('e-processo')
+input_inicio.send_keys(Keys.ENTER)
+sleep(5)
+
+
+
+
+# quais janelas estão abertas
+janelas = driver.window_handles
+for janela in janelas:
+    print('janela - ' + janela)
+    if janela not in janela_inicial:
+        # alterar para essa nova janela
+        driver.switch_to.window(janela)
+        janela_processo = janela
+        sleep(1)
+        print('-' * 50)
+        print('janela Processo - ' + janela)
+
+        # Aguarda a janela de diagnóstico
+        wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@id="ng-app"]/div[20]/div[3]/div/button/span')))
+        driver.find_element(By.XPATH, '//*[@id="ng-app"]/div[20]/div[3]/div/button/span').click()
+        sleep(2)
+        
+        # Aguarda menu consulta para entao clicar
+        wait.until(EC.element_to_be_clickable((By.ID, 'oCMenu_top1')))
+        driver.find_element(By.ID, 'oCMenu_top1').click()
+        sleep(1)
+
+        # Aguarda item processos para entao clicar
+        wait.until(EC.element_to_be_clickable((By.ID, 'oCMenu_sub16')))
+        driver.find_element(By.ID, 'oCMenu_sub16').click()
+        sleep(1)
+
+        # Aguarda o input do processos para entao clicar
+        wait.until(EC.element_to_be_clickable((By.NAME, '12-0')))
+        input_processo = driver.find_element(By.NAME, '12-0')
+        input_processo.click()
+        digitar_naturalmente(numerodoprocesso, input_processo)
+        
+        sleep(1)
+
+        botao_buscar = driver.find_element(
+            By.XPATH, "//*[@id='bodyContainer']/div[4]/app/div/div[3]/div[1]/button")
+        ActionChains(driver)\
+            .scroll_to_element(botao_buscar)\
+            .perform()
+        wait.until(EC.element_to_be_clickable(botao_buscar))
+        botao_buscar.click()
+
+        # Aguarda a visibilidade do responsavel e pega o nome
+        wait.until(EC.visibility_of_any_elements_located(
+        (By.XPATH, '//*[@id="tabelaListaProcessos"]/tbody/tr/td[2]/span/ui-link-numero-processo-formatado/a')))
+        user_responsavel = driver.find_element(
+            By.XPATH, '//*[@id="tabelaListaProcessos"]/tbody/tr/td[11]')
+        print('Responsável: ' + user_responsavel.text)
+        sleep(2)
+
+        # clica no check box do processo
+        checkbox_processo = driver.find_element(
+            By.XPATH, '//*[@id="divCheckProcesso"]/lb-grid-row-selector/input')
+        wait.until(EC.element_to_be_clickable(checkbox_processo))
+        checkbox_processo.click()
+        sleep(2)
+
+        if user_responsavel.text == usuario:
+            # clica no botao Juntar Documento
+            wait.until(EC.element_to_be_clickable(
+                (By.XPATH, '//button[contains(text(), "Juntar Documento")]')))
+            driver.find_element(
+                By.XPATH, '//button[contains(text(), "Juntar Documento")]').click()
+            sleep(2)
+
+        else:
+            
+            # clica no botao Auto distribuir
+            bt_auto_distrib = driver.find_element(
+                By.XPATH, '//*[@id="divCheckProcesso"]/lb-grid-row-selector/input')
+            wait.until(EC.element_to_be_clickable(bt_auto_distrib))
+            bt_auto_distrib.click()
+            sleep(2)
+
+
+            # clica no check box do processo
+            checkbox_processo = driver.find_element(
+                By.XPATH, '//*[@id="divCheckProcesso"]/lb-grid-row-selector/input')
+            wait.until(EC.element_to_be_clickable(checkbox_processo))
+            checkbox_processo.click()
+            sleep(2)
+
+
+            # clica no botao Juntar Documento
+            wait.until(EC.element_to_be_clickable(
+                (By.XPATH, '//button[contains(text(), "Juntar Documento")]')))
+            driver.find_element(
+                By.XPATH, '//button[contains(text(), "Juntar Documento")]').click()
+            sleep(2)
+
+        # Vai para a janela juntar documentos
+        # quais janelas estão abertas
+        janelas = driver.window_handles
+        for janela in janelas:
+            print('janela - ' + janela)
+            if janela not in janela_processo:
+                # alterar para essa nova janela
+                driver.switch_to.window(janela)
+                janela_juntar_doc = janela
+                sleep(1)
+                print('-' * 50)
+                print('janela jutar documentos - ' + janela)
+
+        # Auarda botao selecionar arquivos...
+        wait.until(EC.element_to_be_clickable(
+            (By.XPATH, '//*[@id="bodyContainer"]/div[4]/app/juntar-documentos/div[1]/div[1]/table/tbody/tr/td[1]/button')))
+        driver.find_element(
+            By.XPATH, '//*[@id="bodyContainer"]/div[4]/app/juntar-documentos/div[1]/div[1]/table/tbody/tr/td[1]/button').click()
+        sleep(2)
+
+        print('Entra no pyautogui juntar documentos')
+        # Janela do explorer aberta
+        #pyautogui.moveTo(404,370, duration=2)
+        #pyautogui.doubleClick() # Clica na pasta Processos
+        pyautogui.moveTo(205,475, duration=2)
+        pyautogui.click()   # Clica no campo input
+        # cola string com o nome dos arquivos
+        pyperclip.copy(anexar)
+        pyautogui.hotkey("ctrl", "v")
+        sleep(1)
+        pyautogui.press('enter')
+
+ 
+        print('Sai do pyautogui juntar documentos')
+        sleep(3)
+        
+"""
+        input()
+        # Clica sovre o botao Finalizar juntada
+        driver.find_element(
+            By.XPATH, '//button[contains(text(), "Finalizar Juntada")]').click()
+
+        
+        input()
+        # clica em anexar documento
+        wait.until(EC.element_to_be_clickable((By.XPATH, '//area[@coords="10,1,39,42"]')))
+        driver.find_element(By.XPATH, '//area[@coords="10,1,39,42"]').click()
+        sleep(2)
+"""
+print('---- Ok final! -----')
+sys.exit(0)
