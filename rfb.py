@@ -70,7 +70,7 @@ def rename_filenames(pasta):
                     sys.exit(1)
             else:
                 os.rename(root+"/"+name, root+"/"+slugify(name,regex_pattern=pattern, lowercase=False))
-            print(name,"has been renamed to", slugify(name,regex_pattern=pattern, lowercase=False))
+            #print(name,"has been renamed to", slugify(name,regex_pattern=pattern, lowercase=False))
 
 
 def merge_pdfs(pasta):
@@ -79,7 +79,10 @@ def merge_pdfs(pasta):
     for root, dirs, files in os.walk(path):
         for name in files:
             if name.endswith('.pdf'):
-                fileMerger_.append(root+"\\"+name)
+                try:
+                    fileMerger_.append(root+"\\"+name)
+                except:
+                    print(f'*** ERRO ***- Erro ao processar o arquivo {name}')
     with open(pasta + destino + '.pdf', 'wb') as new_file:
         fileMerger_.write(new_file)
 
@@ -128,9 +131,12 @@ while True:
         if os.path.isdir(pasta + destino):
             try:
                 rename_filenames(pasta)
+            except:
+                print(f'*** ERRO *** erro ao renomear o arquivo {pasta} ')
+            try:
                 merge_pdfs(pasta)
             except:
-                print(f'*** ERRO *** erro ao processar o arquivo {pasta} ')
+                print(f'*** ERRO *** erro ao processar o arquivo {pasta} ')    
         anexada = 'Iniciar anexação dos arquivos ao e-processo...'
                 # create a new thread
         thread = Thread(target=task, daemon=True)
