@@ -43,17 +43,20 @@ def task():
 
 
 def unzip(pasta):
-    zipStored = [filename for filename in (glob(pasta + '\*.zip') or glob(pasta + '\*.rar'))]
-    for arquivo in zipStored:
-        if arquivo.endswith('.zip'):
-            zf = ZipFile(arquivo, 'r')
-            zf.extractall(pasta + destino)
-            zf.close()
-        elif arquivo.endswith('.rar'):
-            if not os.path.isdir(pasta + destino):
-                os.mkdir(pasta + destino)
-            patoolib.extract_archive(arquivo, outdir=pasta + destino)
-            
+    zipStored = True
+    while zipStored:
+        zipStored = [filename for filename in (glob(pasta + '\*.zip') or glob(pasta + '\*.rar'))]
+        for arquivo in zipStored:
+            if arquivo.endswith('.zip'):
+                zf = ZipFile(arquivo, 'r')
+                zf.extractall(pasta + destino)
+                zf.close()
+            elif arquivo.endswith('.rar'):
+                if not os.path.isdir(pasta + destino):
+                    os.mkdir(pasta + destino)
+                patoolib.extract_archive(arquivo, outdir=pasta + destino)
+            pasta += destino
+
 
 def rename_filenames(pasta):
     # Set the path you want to check the names
@@ -71,6 +74,20 @@ def rename_filenames(pasta):
             else:
                 os.rename(root+"/"+name, root+"/"+slugify(name,regex_pattern=pattern, lowercase=False))
             #print(name,"has been renamed to", slugify(name,regex_pattern=pattern, lowercase=False))
+
+
+def img_to_pdf(pasta):
+    path = pasta + destino
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            if name.endswith(('.jpg', '.jpeg', '.png', '.gif', '.tif', '.tiff', '.bmp')):
+                try:
+                    image = Image.open(root+"\\"+name)
+                    im = image.convert('RGB')
+                    im.save(root+"\\"+name+'.pdf')
+                    print(f'Imagem {name} condetida para .pdf com sucesso!!')
+                except:
+                    print(f'*** ERRO *** - Erro ao processar a imagem {name}')
 
 
 def merge_pdfs(pasta):
@@ -101,8 +118,8 @@ destino ='\_1_Documentação'
 # Layout principal
 sg.theme('Reddit')  # Tema
 layout = [
-    [sg.FolderBrowse('Escolher pasta', target='pasta',),sg.Input(key='pasta', size=(50, 10))],
-    [sg.Button('Número do processo: '), sg.Text('', key='processo')],
+    [sg.FileBrowse('Escolher arquivo No do Processo:', target='arq_processo',),sg.Input(key='arq_processo', size=(70, 10))],
+    [sg.FolderBrowse('Escolher pasta de trabalho:', target='pasta',),sg.Input(key='pasta', size=(70, 10))],
     [sg.Button('Processar pasta'), sg.Text('               ', key='processada')],
     [sg.Button('Anexar ao e-processo'), sg.Text('', key='anexar')]
 ]
@@ -119,14 +136,14 @@ while True:
     event, values = janela.Read()
     if event == sg.WIN_CLOSED:
         janela.close()
-        break
-    elif event == 'Número do processo: ':
-        pasta = values['pasta'].replace('/', '\\')
-        with open(pasta + '\\numero_processo.txt', 'r') as file_:
-            processo = str(file_.readlines()).strip('[').strip(']').strip("'")        
+        break        
     elif event == 'Processar pasta':
+        arq_processo = values['arq_processo'].replace('/', '\\')
+        pasta = values['pasta'].replace('/', '\\')
+        with open(arq_processo, 'r') as file_:
+            processo = str(file_.readlines()).strip('[').strip(']').strip("'") 
+
         unzip(pasta)
-        unzip(pasta + destino)
         processada = 'Pasta processada'
         if os.path.isdir(pasta + destino):
             try:
@@ -134,10 +151,14 @@ while True:
             except:
                 print(f'*** ERRO *** erro ao renomear o arquivo {pasta} ')
             try:
+                img_to_pdf(pasta)
+            except:
+                print(f'*** ERRO *** - Erro ao processar a imagem')
+            try:
                 merge_pdfs(pasta)
             except:
                 print(f'*** ERRO *** erro ao processar o arquivo {pasta} ')    
-        anexada = 'Iniciar anexação dos arquivos ao e-processo...'
+        anexada = f'Iniciar anexação dos arquivos ao e-processo: {processo}'
                 # create a new thread
         thread = Thread(target=task, daemon=True)
         # start the thread
@@ -149,9 +170,9 @@ while True:
     else:
         print(event)
 
-    janela['processo'].update(processo)
     janela['processada'].update(processada)
     janela['anexar'].update(anexada)
+
     # report the global variable
     #print(data)
 
